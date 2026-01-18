@@ -1,25 +1,36 @@
 import { ValorantAccount, ValorantMMR, MatchHistoryEntry } from '@/types/valorant';
-
-const BASE_URL = 'https://api.henrikdev.xyz/valorant';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ApiResponse<T> {
   status: number;
   data: T;
 }
 
+async function callValorantApi<T>(endpoint: string): Promise<T | null> {
+  const { data, error } = await supabase.functions.invoke('valorant-api', {
+    body: { endpoint },
+  });
+
+  if (error) {
+    console.error('Error calling valorant-api:', error);
+    throw error;
+  }
+
+  if (data?.status === 404) {
+    return null;
+  }
+
+  if (data?.status && data.status >= 400) {
+    throw new Error(data?.errors?.[0]?.message || 'API Error');
+  }
+
+  return data?.data || data;
+}
+
 export async function fetchAccount(name: string, tag: string): Promise<ValorantAccount | null> {
   try {
-    const response = await fetch(`${BASE_URL}/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`);
-    
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
-      throw new Error(`API Error: ${response.status}`);
-    }
-    
-    const result: ApiResponse<ValorantAccount> = await response.json();
-    return result.data;
+    const endpoint = `/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`;
+    return await callValorantApi<ValorantAccount>(endpoint);
   } catch (error) {
     console.error('Error fetching account:', error);
     throw error;
@@ -28,18 +39,8 @@ export async function fetchAccount(name: string, tag: string): Promise<ValorantA
 
 export async function fetchMMR(region: string, name: string, tag: string): Promise<ValorantMMR | null> {
   try {
-    const response = await fetch(`${BASE_URL}/v3/mmr/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`);
-    
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
-      // Some players might not have MMR data
-      return null;
-    }
-    
-    const result: ApiResponse<ValorantMMR> = await response.json();
-    return result.data;
+    const endpoint = `/v3/mmr/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`;
+    return await callValorantApi<ValorantMMR>(endpoint);
   } catch (error) {
     console.error('Error fetching MMR:', error);
     return null;
@@ -48,14 +49,9 @@ export async function fetchMMR(region: string, name: string, tag: string): Promi
 
 export async function fetchMatchHistory(region: string, name: string, tag: string, size: number = 5): Promise<MatchHistoryEntry[]> {
   try {
-    const response = await fetch(`${BASE_URL}/v4/matches/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}?size=${size}`);
-    
-    if (!response.ok) {
-      return [];
-    }
-    
-    const result: ApiResponse<MatchHistoryEntry[]> = await response.json();
-    return result.data || [];
+    const endpoint = `/v4/matches/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}?size=${size}`;
+    const result = await callValorantApi<MatchHistoryEntry[]>(endpoint);
+    return result || [];
   } catch (error) {
     console.error('Error fetching match history:', error);
     return [];

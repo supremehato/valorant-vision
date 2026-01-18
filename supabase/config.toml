@@ -1,1 +1,4 @@
 project_id = "jxybdkdakfamkylnfnqo"
+
+[functions.valorant-api]
+verify_jwt = false
