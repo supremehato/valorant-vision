@@ -88,7 +88,7 @@ const Index = () => {
           <div className="space-y-6">
             <PlayerCard account={playerStats.account} mmr={playerStats.mmr} />
             <StatsOverview mmr={playerStats.mmr} />
-            <MatchHistory matches={playerStats.matches} />
+            <MatchHistory matches={playerStats.matches} playerPuuid={playerStats.account.puuid} />
           </div>
         )}
 

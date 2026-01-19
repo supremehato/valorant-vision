@@ -1,4 +1,4 @@
-import { ValorantMMR } from '@/types/valorant';
+import { ValorantMMR, getCurrentSeason } from '@/types/valorant';
 import { getRankInfo, getRankImageUrl } from '@/types/valorant';
 import { Trophy, Calendar, Gamepad2 } from 'lucide-react';
 
@@ -7,12 +7,13 @@ interface StatsOverviewProps {
 }
 
 export function StatsOverview({ mmr }: StatsOverviewProps) {
-  if (!mmr?.seasonal || mmr.seasonal.length === 0) {
+  // Get the current (latest) season - it's the last in the array
+  const currentSeason = getCurrentSeason(mmr?.seasonal);
+  
+  if (!currentSeason) {
     return null;
   }
 
-  // Get the latest season data
-  const currentSeason = mmr.seasonal[0];
   const winRate = currentSeason.games > 0 
     ? ((currentSeason.wins / currentSeason.games) * 100).toFixed(1) 
     : '0';
