@@ -7,9 +7,10 @@ import { MatchDetail } from './MatchDetail';
 interface MatchHistoryProps {
   matches: MatchHistoryEntry[];
   playerPuuid: string;
+  onPlayerSearch?: (name: string, tag: string) => void;
 }
 
-export function MatchHistory({ matches, playerPuuid }: MatchHistoryProps) {
+export function MatchHistory({ matches, playerPuuid, onPlayerSearch }: MatchHistoryProps) {
   const [selectedMatch, setSelectedMatch] = useState<MatchHistoryEntry | null>(null);
 
   if (!matches || matches.length === 0) {
@@ -19,6 +20,11 @@ export function MatchHistory({ matches, playerPuuid }: MatchHistoryProps) {
       </div>
     );
   }
+
+  const handlePlayerClick = (name: string, tag: string) => {
+    setSelectedMatch(null);
+    onPlayerSearch?.(name, tag);
+  };
 
   return (
     <>
@@ -49,6 +55,7 @@ export function MatchHistory({ matches, playerPuuid }: MatchHistoryProps) {
         playerPuuid={playerPuuid}
         open={!!selectedMatch}
         onOpenChange={(open) => !open && setSelectedMatch(null)}
+        onPlayerClick={handlePlayerClick}
       />
     </>
   );
