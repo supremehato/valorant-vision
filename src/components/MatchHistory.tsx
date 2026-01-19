@@ -36,16 +36,25 @@ function MatchCard({ match, index }: { match: MatchHistoryEntry; index: number }
   const teams = match.teams;
   const metadata = match.metadata;
   
+  // Guard against missing data
+  if (!stats || !teams || !metadata) {
+    return null;
+  }
+  
   // Determine if the player won
-  const playerTeam = stats.team.toLowerCase() as 'red' | 'blue';
-  const won = teams[playerTeam]?.won;
+  const playerTeam = stats.team?.toLowerCase() as 'red' | 'blue' | undefined;
+  const won = playerTeam && teams[playerTeam]?.won;
   
   const kda = stats.deaths > 0 
     ? ((stats.kills + stats.assists) / stats.deaths).toFixed(2) 
     : (stats.kills + stats.assists).toFixed(2);
   
-  const gameTime = formatDistanceToNow(new Date(metadata.game_start * 1000), { addSuffix: true });
-  const duration = Math.round(metadata.game_length_in_ms / 60000);
+  const gameTime = metadata.game_start 
+    ? formatDistanceToNow(new Date(metadata.game_start * 1000), { addSuffix: true })
+    : 'Unknown';
+  const duration = metadata.game_length_in_ms 
+    ? Math.round(metadata.game_length_in_ms / 60000) 
+    : 0;
 
   return (
     <div 
