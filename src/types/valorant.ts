@@ -16,6 +16,11 @@ export interface ValorantAccount {
 }
 
 export interface ValorantMMR {
+  account: {
+    name: string;
+    tag: string;
+    puuid: string;
+  };
   current: {
     tier: {
       id: number;
@@ -50,12 +55,14 @@ export interface SeasonalData {
     id: number;
     name: string;
   };
+  end_rr: number;
   act_wins: {
     id: number;
     name: string;
   }[];
 }
 
+// Match history v4 API response structure
 export interface MatchHistoryEntry {
   metadata: {
     match_id: string;
@@ -63,23 +70,32 @@ export interface MatchHistoryEntry {
       id: string;
       name: string;
     };
-    game_start: number;
+    started_at: string;
     game_length_in_ms: number;
     region: string;
     queue: {
       id: string;
       name: string;
     };
+    season: {
+      id: string;
+      short: string;
+    };
+  };
+  players: MatchPlayer[];
+  teams: MatchTeam[];
+}
+
+export interface MatchPlayer {
+  puuid: string;
+  name: string;
+  tag: string;
+  team_id: string;
+  agent: {
+    id: string;
+    name: string;
   };
   stats: {
-    puuid: string;
-    team: string;
-    level: number;
-    character: {
-      id: string;
-      name: string;
-    };
-    tier: number;
     score: number;
     kills: number;
     deaths: number;
@@ -92,10 +108,20 @@ export interface MatchHistoryEntry {
       received: number;
     };
   };
-  teams: {
-    red: { won: boolean; rounds_won: number; rounds_lost: number };
-    blue: { won: boolean; rounds_won: number; rounds_lost: number };
+  tier: {
+    id: number;
+    name: string;
   };
+  account_level: number;
+}
+
+export interface MatchTeam {
+  team_id: string;
+  rounds: {
+    won: number;
+    lost: number;
+  };
+  won: boolean;
 }
 
 export interface PlayerStats {
@@ -144,4 +170,11 @@ export function getRankImageUrl(tierId: number): string {
   // Using a CDN for rank images
   if (tierId < 3) return '';
   return `https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/${tierId}/smallicon.png`;
+}
+
+// Helper to get current season (last in array) from seasonal data
+export function getCurrentSeason(seasonal: SeasonalData[] | undefined): SeasonalData | null {
+  if (!seasonal || seasonal.length === 0) return null;
+  // The current/latest season is the LAST in the array
+  return seasonal[seasonal.length - 1];
 }
