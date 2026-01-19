@@ -1,6 +1,6 @@
 import { MatchHistoryEntry, MatchPlayer, getRankImageUrl } from '@/types/valorant';
 import { formatDistanceToNow } from 'date-fns';
-import { X, Crosshair, Skull, Users, Zap, Target } from 'lucide-react';
+import { Trophy, Skull, Target, Crosshair } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,20 +13,19 @@ interface MatchDetailProps {
   playerPuuid: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onPlayerClick?: (name: string, tag: string) => void;
 }
 
-export function MatchDetail({ match, playerPuuid, open, onOpenChange }: MatchDetailProps) {
+export function MatchDetail({ match, playerPuuid, open, onOpenChange, onPlayerClick }: MatchDetailProps) {
   if (!match) return null;
 
   const metadata = match.metadata;
   const players = match.players;
   const teams = match.teams;
 
-  // Separate players by team
   const bluePlayers = players.filter(p => p.team_id === 'Blue');
   const redPlayers = players.filter(p => p.team_id === 'Red');
 
-  // Get team results
   const blueTeam = teams.find(t => t.team_id === 'Blue');
   const redTeam = teams.find(t => t.team_id === 'Red');
 
@@ -39,51 +38,68 @@ export function MatchDetail({ match, playerPuuid, open, onOpenChange }: MatchDet
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border-border">
-        <DialogHeader>
-          <DialogTitle className="font-display text-2xl flex items-center gap-4">
-            <span>{metadata.map?.name || 'Unknown Map'}</span>
-            <span className="text-muted-foreground text-base font-normal">
-              {metadata.queue?.name || 'Competitive'} • {duration}m • {gameTime}
-            </span>
-          </DialogTitle>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-background/95 backdrop-blur-xl border-primary/20">
+        <DialogHeader className="pb-4 border-b border-border/50">
+          <div className="flex items-center gap-4">
+            {metadata.map?.id && (
+              <div className="w-20 h-12 rounded-lg overflow-hidden border border-border/50">
+                <img
+                  src={`https://media.valorant-api.com/maps/${metadata.map.id}/listviewicon.png`}
+                  alt={metadata.map.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div>
+              <DialogTitle className="font-display text-2xl">
+                {metadata.map?.name || 'Unknown Map'}
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                {metadata.queue?.name || 'Competitive'} • {duration} minutes • {gameTime}
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
         {/* Score Header */}
-        <div className="flex items-center justify-center gap-8 py-6">
-          <div className="text-center">
-            <p className="text-sm text-blue-400 uppercase tracking-wider mb-1">Blue Team</p>
-            <p className={`font-display text-5xl font-bold ${blueTeam?.won ? 'text-blue-400' : 'text-muted-foreground'}`}>
+        <div className="flex items-center justify-center gap-6 py-8 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-red-500/10 rounded-xl" />
+          <div className="text-center relative z-10">
+            <div className="flex items-center gap-2 justify-center mb-2">
+              {blueTeam?.won && <Trophy className="w-5 h-5 text-yellow-400" />}
+              <p className="text-sm font-semibold text-blue-400 uppercase tracking-wider">Blue</p>
+            </div>
+            <p className={`font-display text-6xl font-bold ${blueTeam?.won ? 'text-blue-400' : 'text-blue-400/50'}`}>
               {blueTeam?.rounds?.won ?? 0}
             </p>
           </div>
-          <div className="text-3xl text-muted-foreground">-</div>
-          <div className="text-center">
-            <p className="text-sm text-red-400 uppercase tracking-wider mb-1">Red Team</p>
-            <p className={`font-display text-5xl font-bold ${redTeam?.won ? 'text-red-400' : 'text-muted-foreground'}`}>
+          <div className="w-px h-20 bg-gradient-to-b from-transparent via-border to-transparent" />
+          <div className="text-center relative z-10">
+            <div className="flex items-center gap-2 justify-center mb-2">
+              {redTeam?.won && <Trophy className="w-5 h-5 text-yellow-400" />}
+              <p className="text-sm font-semibold text-red-400 uppercase tracking-wider">Red</p>
+            </div>
+            <p className={`font-display text-6xl font-bold ${redTeam?.won ? 'text-red-400' : 'text-red-400/50'}`}>
               {redTeam?.rounds?.won ?? 0}
             </p>
           </div>
         </div>
 
-        {/* Scoreboard */}
-        <div className="space-y-6">
-          {/* Blue Team */}
+        {/* Scoreboards */}
+        <div className="space-y-4">
           <TeamScoreboard 
             players={bluePlayers} 
-            teamName="Blue Team" 
             teamColor="blue" 
             won={blueTeam?.won ?? false}
             playerPuuid={playerPuuid}
+            onPlayerClick={onPlayerClick}
           />
-
-          {/* Red Team */}
           <TeamScoreboard 
             players={redPlayers} 
-            teamName="Red Team" 
             teamColor="red" 
             won={redTeam?.won ?? false}
             playerPuuid={playerPuuid}
+            onPlayerClick={onPlayerClick}
           />
         </div>
       </DialogContent>
@@ -93,51 +109,47 @@ export function MatchDetail({ match, playerPuuid, open, onOpenChange }: MatchDet
 
 interface TeamScoreboardProps {
   players: MatchPlayer[];
-  teamName: string;
   teamColor: 'blue' | 'red';
   won: boolean;
   playerPuuid: string;
+  onPlayerClick?: (name: string, tag: string) => void;
 }
 
-function TeamScoreboard({ players, teamName, teamColor, won, playerPuuid }: TeamScoreboardProps) {
-  // Sort players by score (ACS)
+function TeamScoreboard({ players, teamColor, won, playerPuuid, onPlayerClick }: TeamScoreboardProps) {
   const sortedPlayers = [...players].sort((a, b) => b.stats.score - a.stats.score);
 
   return (
-    <div className={`rounded-lg overflow-hidden border ${
-      teamColor === 'blue' ? 'border-blue-500/30' : 'border-red-500/30'
+    <div className={`rounded-xl overflow-hidden border ${
+      teamColor === 'blue' ? 'border-blue-500/30 bg-blue-500/5' : 'border-red-500/30 bg-red-500/5'
     }`}>
-      {/* Team Header */}
-      <div className={`px-4 py-2 ${
-        teamColor === 'blue' ? 'bg-blue-500/20' : 'bg-red-500/20'
-      }`}>
-        <div className="flex items-center justify-between">
-          <span className={`font-display font-bold ${
-            teamColor === 'blue' ? 'text-blue-400' : 'text-red-400'
-          }`}>
-            {teamName} {won && '(Winner)'}
-          </span>
-        </div>
-      </div>
-
       {/* Table Header */}
-      <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-muted/30 text-xs text-muted-foreground uppercase tracking-wider">
-        <div className="col-span-4">Player</div>
-        <div className="col-span-1 text-center">ACS</div>
+      <div className={`grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider ${
+        teamColor === 'blue' ? 'bg-blue-500/20 text-blue-300' : 'bg-red-500/20 text-red-300'
+      }`}>
+        <div className="col-span-4 flex items-center gap-2">
+          {won && <Trophy className="w-3 h-3 text-yellow-400" />}
+          Player
+        </div>
+        <div className="col-span-1 text-center">Score</div>
         <div className="col-span-1 text-center">K</div>
         <div className="col-span-1 text-center">D</div>
         <div className="col-span-1 text-center">A</div>
         <div className="col-span-1 text-center">KDA</div>
-        <div className="col-span-1 text-center">HS%</div>
-        <div className="col-span-2 text-center">Damage</div>
+        <div className="col-span-1 text-center flex items-center justify-center gap-1">
+          <Crosshair className="w-3 h-3" />
+          HS%
+        </div>
+        <div className="col-span-2 text-center">DMG</div>
       </div>
 
       {/* Players */}
-      {sortedPlayers.map((player) => (
+      {sortedPlayers.map((player, idx) => (
         <PlayerRow 
           key={player.puuid} 
           player={player} 
           isCurrentPlayer={player.puuid === playerPuuid}
+          isMVP={idx === 0}
+          onPlayerClick={onPlayerClick}
         />
       ))}
     </div>
@@ -147,12 +159,13 @@ function TeamScoreboard({ players, teamName, teamColor, won, playerPuuid }: Team
 interface PlayerRowProps {
   player: MatchPlayer;
   isCurrentPlayer: boolean;
+  isMVP: boolean;
+  onPlayerClick?: (name: string, tag: string) => void;
 }
 
-function PlayerRow({ player, isCurrentPlayer }: PlayerRowProps) {
+function PlayerRow({ player, isCurrentPlayer, isMVP, onPlayerClick }: PlayerRowProps) {
   const stats = player.stats;
   
-  // Calculate derived stats
   const kda = stats.deaths > 0 
     ? ((stats.kills + stats.assists) / stats.deaths).toFixed(2) 
     : (stats.kills + stats.assists).toFixed(2);
@@ -162,62 +175,72 @@ function PlayerRow({ player, isCurrentPlayer }: PlayerRowProps) {
     ? Math.round((stats.headshots / totalShots) * 100) 
     : 0;
 
-  // Calculate ACS (Average Combat Score) - score divided by rounds (approximation)
-  const acs = Math.round(stats.score / 20); // Rough estimate, actual would need round count
+  const handleClick = () => {
+    if (onPlayerClick && player.name && player.tag) {
+      onPlayerClick(player.name, player.tag);
+    }
+  };
 
   return (
-    <div className={`grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/50 items-center ${
-      isCurrentPlayer ? 'bg-primary/10' : 'hover:bg-muted/20'
+    <div className={`grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/30 items-center transition-colors ${
+      isCurrentPlayer ? 'bg-primary/15 border-l-2 border-l-primary' : 'hover:bg-muted/30'
     }`}>
       {/* Player Info */}
       <div className="col-span-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
-          <img
-            src={`https://media.valorant-api.com/agents/${player.agent?.id}/displayicon.png`}
-            alt={player.agent?.name || 'Agent'}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
+        <div className="relative flex-shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-muted/50 overflow-hidden border border-border/50">
+            <img
+              src={`https://media.valorant-api.com/agents/${player.agent?.id}/displayicon.png`}
+              alt={player.agent?.name || 'Agent'}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+          {isMVP && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+              <Target className="w-2.5 h-2.5 text-black" />
+            </div>
+          )}
         </div>
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`font-medium truncate ${isCurrentPlayer ? 'text-primary' : 'text-foreground'}`}>
-              {player.name}
-            </span>
-            <span className="text-muted-foreground text-xs">#{player.tag}</span>
-          </div>
+          <button
+            onClick={handleClick}
+            className={`font-medium truncate block text-left hover:text-primary transition-colors ${
+              isCurrentPlayer ? 'text-primary' : 'text-foreground'
+            }`}
+          >
+            {player.name}
+            <span className="text-muted-foreground text-xs ml-1">#{player.tag}</span>
+          </button>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{player.agent?.name}</span>
             {player.tier?.id > 0 && (
-              <>
-                <span>•</span>
-                <img 
-                  src={getRankImageUrl(player.tier.id)} 
-                  alt={player.tier.name}
-                  className="w-4 h-4"
-                />
-              </>
+              <img 
+                src={getRankImageUrl(player.tier.id)} 
+                alt={player.tier.name}
+                className="w-4 h-4"
+              />
             )}
           </div>
         </div>
       </div>
 
-      {/* ACS */}
+      {/* Score */}
       <div className="col-span-1 text-center">
         <span className="font-display font-bold text-accent">{stats.score}</span>
       </div>
 
       {/* K/D/A */}
       <div className="col-span-1 text-center">
-        <span className="font-semibold text-green-400">{stats.kills}</span>
+        <span className="font-bold text-green-400">{stats.kills}</span>
       </div>
       <div className="col-span-1 text-center">
-        <span className="font-semibold text-red-400">{stats.deaths}</span>
+        <span className="font-bold text-red-400">{stats.deaths}</span>
       </div>
       <div className="col-span-1 text-center">
-        <span className="font-semibold text-muted-foreground">{stats.assists}</span>
+        <span className="text-muted-foreground">{stats.assists}</span>
       </div>
 
       {/* KDA Ratio */}
@@ -241,7 +264,7 @@ function PlayerRow({ player, isCurrentPlayer }: PlayerRowProps) {
 
       {/* Damage */}
       <div className="col-span-2 text-center text-sm">
-        <span className="text-green-400">{stats.damage.dealt}</span>
+        <span className="text-green-400 font-medium">{stats.damage.dealt}</span>
         <span className="text-muted-foreground mx-1">/</span>
         <span className="text-red-400">{stats.damage.received}</span>
       </div>
