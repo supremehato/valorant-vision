@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { MatchHistoryEntry } from '@/types/valorant';
 import { formatDistanceToNow } from 'date-fns';
-import { Skull, Crosshair, Users, Clock, Swords } from 'lucide-react';
+import { Skull, Crosshair, Users, Clock, Swords, ChevronRight, Target, Zap } from 'lucide-react';
+import { MatchDetail } from './MatchDetail';
 
 interface MatchHistoryProps {
   matches: MatchHistoryEntry[];
@@ -8,6 +10,8 @@ interface MatchHistoryProps {
 }
 
 export function MatchHistory({ matches, playerPuuid }: MatchHistoryProps) {
+  const [selectedMatch, setSelectedMatch] = useState<MatchHistoryEntry | null>(null);
+
   if (!matches || matches.length === 0) {
     return (
       <div className="glass-card p-6 text-center animate-fade-in">
@@ -17,27 +21,47 @@ export function MatchHistory({ matches, playerPuuid }: MatchHistoryProps) {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <h3 className="font-display text-xl font-bold flex items-center gap-2">
-        <Swords className="w-5 h-5 text-primary" />
-        Recent Matches
-      </h3>
-      
-      <div className="space-y-3">
-        {matches.map((match, index) => (
-          <MatchCard 
-            key={match.metadata?.match_id || index} 
-            match={match} 
-            index={index}
-            playerPuuid={playerPuuid}
-          />
-        ))}
+    <>
+      <div className="space-y-4 animate-fade-in">
+        <h3 className="font-display text-xl font-bold flex items-center gap-2">
+          <Swords className="w-5 h-5 text-primary" />
+          Recent Matches
+          <span className="text-sm font-normal text-muted-foreground ml-2">
+            Click to view scoreboard
+          </span>
+        </h3>
+        
+        <div className="space-y-3">
+          {matches.map((match, index) => (
+            <MatchCard 
+              key={match.metadata?.match_id || index} 
+              match={match} 
+              index={index}
+              playerPuuid={playerPuuid}
+              onClick={() => setSelectedMatch(match)}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+
+      <MatchDetail 
+        match={selectedMatch}
+        playerPuuid={playerPuuid}
+        open={!!selectedMatch}
+        onOpenChange={(open) => !open && setSelectedMatch(null)}
+      />
+    </>
   );
 }
 
-function MatchCard({ match, index, playerPuuid }: { match: MatchHistoryEntry; index: number; playerPuuid: string }) {
+interface MatchCardProps {
+  match: MatchHistoryEntry;
+  index: number;
+  playerPuuid: string;
+  onClick: () => void;
+}
+
+function MatchCard({ match, index, playerPuuid, onClick }: MatchCardProps) {
   const metadata = match.metadata;
   const players = match.players;
   const teams = match.teams;
@@ -64,6 +88,12 @@ function MatchCard({ match, index, playerPuuid }: { match: MatchHistoryEntry; in
     ? ((playerStats.kills + playerStats.assists) / playerStats.deaths).toFixed(2) 
     : (playerStats.kills + playerStats.assists).toFixed(2);
   
+  // Calculate HS%
+  const totalShots = playerStats.headshots + playerStats.bodyshots + playerStats.legshots;
+  const headshotPercent = totalShots > 0 
+    ? Math.round((playerStats.headshots / totalShots) * 100) 
+    : 0;
+
   const gameTime = metadata.started_at 
     ? formatDistanceToNow(new Date(metadata.started_at), { addSuffix: true })
     : 'Unknown';
@@ -76,8 +106,9 @@ function MatchCard({ match, index, playerPuuid }: { match: MatchHistoryEntry; in
 
   return (
     <div 
-      className={`glass-card p-4 border-l-4 transition-all hover:translate-x-1 ${
-        won ? 'border-l-green-500' : 'border-l-red-500'
+      onClick={onClick}
+      className={`glass-card p-4 border-l-4 transition-all hover:translate-x-1 cursor-pointer group ${
+        won ? 'border-l-green-500 hover:border-l-green-400' : 'border-l-red-500 hover:border-l-red-400'
       }`}
       style={{ animationDelay: `${index * 100}ms` }}
     >
@@ -122,7 +153,7 @@ function MatchCard({ match, index, playerPuuid }: { match: MatchHistoryEntry; in
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-6 flex-1">
+        <div className="flex items-center gap-4 flex-1">
           <div className="flex items-center gap-2">
             <Crosshair className="w-4 h-4 text-green-500" />
             <span className="text-foreground font-semibold">{playerStats.kills}</span>
@@ -135,18 +166,29 @@ function MatchCard({ match, index, playerPuuid }: { match: MatchHistoryEntry; in
             <Users className="w-4 h-4 text-accent" />
             <span className="text-foreground font-semibold">{playerStats.assists}</span>
           </div>
-          <div className="hidden md:block px-3 py-1 bg-muted rounded text-sm font-semibold">
+          <div className="hidden md:block px-2 py-1 bg-muted rounded text-sm font-semibold">
             KDA: {kda}
+          </div>
+          <div className="hidden lg:flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm">
+            <Target className="w-3 h-3 text-yellow-400" />
+            <span className="font-semibold">{headshotPercent}%</span>
+          </div>
+          <div className="hidden lg:flex items-center gap-1 px-2 py-1 bg-muted rounded text-sm">
+            <Zap className="w-3 h-3 text-accent" />
+            <span className="font-semibold">{playerStats.score}</span>
           </div>
         </div>
 
-        {/* Time */}
-        <div className="text-right text-sm text-muted-foreground">
-          <div className="flex items-center gap-1 justify-end">
-            <Clock className="w-3 h-3" />
-            {duration}m
+        {/* Time & Arrow */}
+        <div className="flex items-center gap-4">
+          <div className="text-right text-sm text-muted-foreground">
+            <div className="flex items-center gap-1 justify-end">
+              <Clock className="w-3 h-3" />
+              {duration}m
+            </div>
+            <div>{gameTime}</div>
           </div>
-          <div>{gameTime}</div>
+          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
       </div>
     </div>
