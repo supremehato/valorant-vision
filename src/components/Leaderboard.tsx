@@ -56,9 +56,11 @@ export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
     setError(null);
 
     try {
+      // Only competitive leaderboard is reliably available
+      // Premier leaderboard uses a different endpoint structure
       const endpoint = mode === 'competitive' 
         ? `/v3/leaderboard/${region}/pc`
-        : `/v1/premier/${region}/leaderboard`;
+        : `/v2/premier/leaderboard/${region}`;
 
       const { data, error: apiError } = await supabase.functions.invoke('valorant-api', {
         body: { endpoint },
@@ -66,25 +68,38 @@ export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
 
       if (apiError) throw apiError;
 
+      // Handle 404 or missing data gracefully
+      if (data?.status === 404 || data?.errors) {
+        if (mode === 'premier') {
+          setError('Premier leaderboard not available for this region');
+        } else {
+          setError('Leaderboard data not available');
+        }
+        setPlayers([]);
+        return;
+      }
+
       if (mode === 'competitive' && data?.data) {
         // Competitive leaderboard
-        setPlayers(data.data.slice(0, 100).map((p: any) => ({
-          puuid: p.puuid,
+        const playerData = Array.isArray(data.data) ? data.data : [];
+        setPlayers(playerData.slice(0, 100).map((p: any) => ({
+          puuid: p.puuid || '',
           gameName: p.gameName || p.name || 'Anonymous',
           tagLine: p.tagLine || p.tag || '',
-          leaderboardRank: p.leaderboardRank,
-          rankedRating: p.rankedRating,
-          numberOfWins: p.numberOfWins,
+          leaderboardRank: p.leaderboardRank || 0,
+          rankedRating: p.rankedRating || 0,
+          numberOfWins: p.numberOfWins || 0,
           competitiveTier: p.competitiveTier || 27,
         })));
       } else if (mode === 'premier' && data?.data) {
-        // Premier leaderboard - different structure
-        setPlayers(data.data.slice(0, 100).map((team: any, index: number) => ({
-          puuid: team.id || index.toString(),
-          gameName: team.name || 'Team',
-          tagLine: team.tag || '',
-          leaderboardRank: index + 1,
-          rankedRating: team.score || team.wins || 0,
+        // Premier leaderboard - teams structure
+        const teamsData = Array.isArray(data.data) ? data.data : [];
+        setPlayers(teamsData.slice(0, 100).map((team: any, index: number) => ({
+          puuid: team.id || team.team_id || index.toString(),
+          gameName: team.name || team.team_name || 'Team',
+          tagLine: team.tag || team.team_tag || '',
+          leaderboardRank: team.rank || index + 1,
+          rankedRating: team.score || team.rating || 0,
           numberOfWins: team.wins || 0,
           competitiveTier: 27,
         })));
@@ -93,7 +108,7 @@ export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
       }
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
-      setError('Failed to fetch leaderboard');
+      setError(mode === 'premier' ? 'Premier leaderboard not available' : 'Failed to fetch leaderboard');
       setPlayers([]);
     } finally {
       setIsLoading(false);
