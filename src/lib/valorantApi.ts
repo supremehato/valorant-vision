@@ -47,9 +47,18 @@ export async function fetchMMR(region: string, name: string, tag: string): Promi
   }
 }
 
-export async function fetchMatchHistory(region: string, name: string, tag: string, size: number = 5): Promise<MatchHistoryEntry[]> {
+export async function fetchMatchHistory(
+  region: string, 
+  name: string, 
+  tag: string, 
+  size: number = 5,
+  mode?: string
+): Promise<MatchHistoryEntry[]> {
   try {
-    const endpoint = `/v4/matches/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}?size=${size}`;
+    let endpoint = `/v4/matches/${region}/pc/${encodeURIComponent(name)}/${encodeURIComponent(tag)}?size=${size}`;
+    if (mode && mode !== 'all') {
+      endpoint += `&mode=${mode}`;
+    }
     const result = await callValorantApi<MatchHistoryEntry[]>(endpoint);
     return result || [];
   } catch (error) {
