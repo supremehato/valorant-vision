@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { PlayerSearch } from '@/components/PlayerSearch';
 import { PlayerCard } from '@/components/PlayerCard';
-import { MatchHistory } from '@/components/MatchHistory';
-import { StatsOverview } from '@/components/StatsOverview';
+import { PlayerStatsTabs } from '@/components/PlayerStatsTabs';
+import { Leaderboard } from '@/components/Leaderboard';
 import { Header } from '@/components/Header';
 import { fetchPlayerStats } from '@/lib/valorantApi';
 import { PlayerStats } from '@/types/valorant';
@@ -87,34 +87,41 @@ const Index = () => {
         {playerStats && (
           <div className="space-y-6">
             <PlayerCard account={playerStats.account} mmr={playerStats.mmr} />
-            <StatsOverview mmr={playerStats.mmr} />
-            <MatchHistory 
-              matches={playerStats.matches} 
-              playerPuuid={playerStats.account.puuid} 
+            <PlayerStatsTabs
+              mmr={playerStats.mmr}
+              matches={playerStats.matches}
+              playerPuuid={playerStats.account.puuid}
               onPlayerSearch={handleSearch}
             />
           </div>
         )}
 
-        {/* Feature Cards - Show when no search yet */}
+        {/* Feature Cards & Leaderboard - Show when no search yet */}
         {!hasSearched && !isLoading && (
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mt-12">
-            <FeatureCard
-              icon={<Target className="w-8 h-8" />}
-              title="Rank Tracking"
-              description="See your current rank, RR, and peak performance across all acts"
-            />
-            <FeatureCard
-              icon={<TrendingUp className="w-8 h-8" />}
-              title="Match History"
-              description="Analyze your recent games with detailed K/D/A stats"
-            />
-            <FeatureCard
-              icon={<Shield className="w-8 h-8" />}
-              title="Season Stats"
-              description="Track your progress with wins, games played, and win rates"
-            />
-          </div>
+          <>
+            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto mt-12">
+              <FeatureCard
+                icon={<Target className="w-8 h-8" />}
+                title="Rank Tracking"
+                description="See your current rank, RR, and peak performance across all acts"
+              />
+              <FeatureCard
+                icon={<TrendingUp className="w-8 h-8" />}
+                title="Match History"
+                description="Analyze your recent games with detailed K/D/A stats"
+              />
+              <FeatureCard
+                icon={<Shield className="w-8 h-8" />}
+                title="Season Stats"
+                description="Track your progress with wins, games played, and win rates"
+              />
+            </div>
+
+            {/* Leaderboard Section */}
+            <div className="max-w-5xl mx-auto mt-12">
+              <Leaderboard onPlayerSearch={handleSearch} />
+            </div>
+          </>
         )}
       </section>
 
