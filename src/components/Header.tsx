@@ -15,14 +15,7 @@ export function Header() {
         </a>
 
         <nav className="flex items-center gap-6">
-          <a 
-            href="https://docs.henrikdev.xyz" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            API Docs
-          </a>
+          {/* Navigation items can be added here */}
         </nav>
       </div>
     </header>
