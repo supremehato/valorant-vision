@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, ChevronDown, Users } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Trophy } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -19,7 +18,6 @@ interface LeaderboardPlayer {
   rankedRating: number;
   numberOfWins: number;
   competitiveTier: number;
-  PlayerCardID?: string;
 }
 
 interface LeaderboardProps {
@@ -35,21 +33,15 @@ const REGIONS = [
   { value: 'latam', label: 'LATAM' },
 ];
 
-const GAME_MODES = [
-  { value: 'competitive', label: 'Competitive' },
-  { value: 'premier', label: 'Premier' },
-];
-
 export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
   const [region, setRegion] = useState('eu');
-  const [mode, setMode] = useState('competitive');
   const [players, setPlayers] = useState<LeaderboardPlayer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [region, mode]);
+  }, [region]);
 
   const fetchLeaderboard = async () => {
     setIsLoading(true);
@@ -57,10 +49,7 @@ export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
 
     try {
       // Only competitive leaderboard is reliably available
-      // Premier leaderboard uses a different endpoint structure
-      const endpoint = mode === 'competitive' 
-        ? `/v3/leaderboard/${region}/pc`
-        : `/v2/premier/leaderboard/${region}`;
+      const endpoint = `/v3/leaderboard/${region}/pc`;
 
       const { data, error: apiError } = await supabase.functions.invoke('valorant-api', {
         body: { endpoint },
@@ -70,45 +59,30 @@ export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
 
       // Handle 404 or missing data gracefully
       if (data?.status === 404 || data?.errors) {
-        if (mode === 'premier') {
-          setError('Premier leaderboard not available for this region');
-        } else {
-          setError('Leaderboard data not available');
-        }
+        setError('Leaderboard data not available');
         setPlayers([]);
         return;
       }
 
-      if (mode === 'competitive' && data?.data) {
-        // Competitive leaderboard
-        const playerData = Array.isArray(data.data) ? data.data : [];
-        setPlayers(playerData.slice(0, 100).map((p: any) => ({
+      // API returns { data: { players: [...] } }
+      const playersData = data?.data?.players || data?.players || [];
+      
+      if (Array.isArray(playersData) && playersData.length > 0) {
+        setPlayers(playersData.slice(0, 100).map((p: any) => ({
           puuid: p.puuid || '',
-          gameName: p.gameName || p.name || 'Anonymous',
-          tagLine: p.tagLine || p.tag || '',
-          leaderboardRank: p.leaderboardRank || 0,
-          rankedRating: p.rankedRating || 0,
-          numberOfWins: p.numberOfWins || 0,
-          competitiveTier: p.competitiveTier || 27,
-        })));
-      } else if (mode === 'premier' && data?.data) {
-        // Premier leaderboard - teams structure
-        const teamsData = Array.isArray(data.data) ? data.data : [];
-        setPlayers(teamsData.slice(0, 100).map((team: any, index: number) => ({
-          puuid: team.id || team.team_id || index.toString(),
-          gameName: team.name || team.team_name || 'Team',
-          tagLine: team.tag || team.team_tag || '',
-          leaderboardRank: team.rank || index + 1,
-          rankedRating: team.score || team.rating || 0,
-          numberOfWins: team.wins || 0,
-          competitiveTier: 27,
+          gameName: p.name || 'Anonymous',
+          tagLine: p.tag || '',
+          leaderboardRank: p.leaderboard_rank || 0,
+          rankedRating: p.rr || 0,
+          numberOfWins: p.wins || 0,
+          competitiveTier: p.tier || 27,
         })));
       } else {
         setPlayers([]);
       }
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
-      setError(mode === 'premier' ? 'Premier leaderboard not available' : 'Failed to fetch leaderboard');
+      setError('Failed to fetch leaderboard');
       setPlayers([]);
     } finally {
       setIsLoading(false);
@@ -139,21 +113,6 @@ export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
         </div>
       </div>
 
-      {/* Game Mode Tabs */}
-      <Tabs value={mode} onValueChange={setMode} className="mb-6">
-        <TabsList className="bg-muted/50 p-1 w-full md:w-auto">
-          {GAME_MODES.map((m) => (
-            <TabsTrigger
-              key={m.value}
-              value={m.value}
-              className="flex-1 md:flex-none data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-6"
-            >
-              {m.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
       {/* Leaderboard Table */}
       <div className="overflow-x-auto">
         {isLoading ? (
@@ -177,7 +136,7 @@ export function Leaderboard({ onPlayerSearch }: LeaderboardProps) {
                   Player
                 </th>
                 <th className="text-right py-3 px-2 text-xs text-muted-foreground uppercase tracking-wider">
-                  {mode === 'competitive' ? 'RR' : 'Score'}
+                  RR
                 </th>
                 <th className="text-right py-3 px-2 text-xs text-muted-foreground uppercase tracking-wider hidden md:table-cell">
                   Wins
