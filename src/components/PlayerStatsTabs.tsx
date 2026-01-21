@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { StatsOverview } from './StatsOverview';
 import { MatchHistory } from './MatchHistory';
 import { ValorantMMR, MatchHistoryEntry, MatchPlayer } from '@/types/valorant';
-import { User, Crosshair, Map, History, Swords } from 'lucide-react';
+import { User, Crosshair, Map, History, Swords, Target } from 'lucide-react';
 
 interface PlayerStatsTabsProps {
   mmr: ValorantMMR | null;
@@ -35,10 +35,24 @@ interface MapStat {
   wins: number;
 }
 
+interface OverallStats {
+  totalKills: number;
+  totalDeaths: number;
+  totalAssists: number;
+  totalHeadshots: number;
+  totalBodyshots: number;
+  totalLegshots: number;
+  totalDamageDealt: number;
+  totalDamageReceived: number;
+  totalGames: number;
+  totalWins: number;
+}
+
 export function PlayerStatsTabs({ mmr, matches, playerPuuid, onPlayerSearch }: PlayerStatsTabsProps) {
-  // Calculate agent stats from match history
+  // Calculate stats from match history
   const agentStats = calculateAgentStats(matches, playerPuuid);
   const mapStats = calculateMapStats(matches, playerPuuid);
+  const overallStats = calculateOverallStats(matches, playerPuuid);
 
   return (
     <Tabs defaultValue="overview" className="w-full">
@@ -65,6 +79,13 @@ export function PlayerStatsTabs({ mmr, matches, playerPuuid, onPlayerSearch }: P
           <span className="hidden sm:inline">Agents</span>
         </TabsTrigger>
         <TabsTrigger 
+          value="accuracy" 
+          className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+        >
+          <Target className="w-4 h-4" />
+          <span className="hidden sm:inline">Accuracy</span>
+        </TabsTrigger>
+        <TabsTrigger 
           value="maps" 
           className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
         >
@@ -87,6 +108,10 @@ export function PlayerStatsTabs({ mmr, matches, playerPuuid, onPlayerSearch }: P
 
       <TabsContent value="agents" className="mt-6">
         <AgentStatsDisplay agents={agentStats} />
+      </TabsContent>
+
+      <TabsContent value="accuracy" className="mt-6">
+        <AccuracyStatsDisplay stats={overallStats} />
       </TabsContent>
 
       <TabsContent value="maps" className="mt-6">
@@ -162,6 +187,42 @@ function calculateMapStats(matches: MatchHistoryEntry[], playerPuuid: string): M
 
   const result: MapStat[] = Object.values(mapStats);
   return result.sort((a, b) => b.games - a.games);
+}
+
+function calculateOverallStats(matches: MatchHistoryEntry[], playerPuuid: string): OverallStats {
+  const stats: OverallStats = {
+    totalKills: 0,
+    totalDeaths: 0,
+    totalAssists: 0,
+    totalHeadshots: 0,
+    totalBodyshots: 0,
+    totalLegshots: 0,
+    totalDamageDealt: 0,
+    totalDamageReceived: 0,
+    totalGames: 0,
+    totalWins: 0,
+  };
+
+  matches.forEach(match => {
+    const player = match.players?.find(p => p.puuid === playerPuuid);
+    if (!player) return;
+
+    const team = match.teams?.find(t => t.team_id === player.team_id);
+    const won = team?.won || false;
+
+    stats.totalGames++;
+    if (won) stats.totalWins++;
+    stats.totalKills += player.stats?.kills || 0;
+    stats.totalDeaths += player.stats?.deaths || 0;
+    stats.totalAssists += player.stats?.assists || 0;
+    stats.totalHeadshots += player.stats?.headshots || 0;
+    stats.totalBodyshots += player.stats?.bodyshots || 0;
+    stats.totalLegshots += player.stats?.legshots || 0;
+    stats.totalDamageDealt += player.stats?.damage?.dealt || 0;
+    stats.totalDamageReceived += player.stats?.damage?.received || 0;
+  });
+
+  return stats;
 }
 
 function AgentStatsDisplay({ agents }: { agents: AgentStat[] }) {
@@ -277,6 +338,141 @@ function MapStatsDisplay({ maps }: { maps: MapStat[] }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function AccuracyStatsDisplay({ stats }: { stats: OverallStats }) {
+  const totalShots = stats.totalHeadshots + stats.totalBodyshots + stats.totalLegshots;
+  const headshotPercent = totalShots > 0 ? ((stats.totalHeadshots / totalShots) * 100).toFixed(1) : '0';
+  const bodyshotPercent = totalShots > 0 ? ((stats.totalBodyshots / totalShots) * 100).toFixed(1) : '0';
+  const legshotPercent = totalShots > 0 ? ((stats.totalLegshots / totalShots) * 100).toFixed(1) : '0';
+  const kd = stats.totalDeaths > 0 ? (stats.totalKills / stats.totalDeaths).toFixed(2) : stats.totalKills.toFixed(2);
+  const kda = stats.totalDeaths > 0 
+    ? ((stats.totalKills + stats.totalAssists) / stats.totalDeaths).toFixed(2) 
+    : (stats.totalKills + stats.totalAssists).toFixed(2);
+  const winRate = stats.totalGames > 0 ? ((stats.totalWins / stats.totalGames) * 100).toFixed(0) : '0';
+  const avgDamagePerGame = stats.totalGames > 0 ? Math.round(stats.totalDamageDealt / stats.totalGames) : 0;
+
+  if (stats.totalGames === 0) {
+    return (
+      <div className="glass-card p-6 text-center text-muted-foreground">
+        No accuracy data available from recent matches
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Combat Stats */}
+      <div className="glass-card p-6">
+        <h3 className="font-display text-xl font-bold mb-4 flex items-center gap-2">
+          <Target className="w-5 h-5 text-accent" />
+          Combat Statistics ({stats.totalGames} matches)
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">K/D Ratio</p>
+            <p className={`font-display text-2xl font-bold ${parseFloat(kd) >= 1 ? 'text-green-500' : 'text-destructive'}`}>
+              {kd}
+            </p>
+          </div>
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">KDA</p>
+            <p className="font-display text-2xl font-bold text-accent">{kda}</p>
+          </div>
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">Win Rate</p>
+            <p className={`font-display text-2xl font-bold ${parseInt(winRate) >= 50 ? 'text-green-500' : 'text-destructive'}`}>
+              {winRate}%
+            </p>
+          </div>
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">Avg Damage</p>
+            <p className="font-display text-2xl font-bold">{avgDamagePerGame}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Kill Stats */}
+      <div className="glass-card p-6">
+        <h3 className="font-display text-lg font-bold mb-4">Total Kills / Deaths / Assists</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">Kills</p>
+            <p className="font-display text-3xl font-bold text-green-500">{stats.totalKills}</p>
+          </div>
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">Deaths</p>
+            <p className="font-display text-3xl font-bold text-destructive">{stats.totalDeaths}</p>
+          </div>
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">Assists</p>
+            <p className="font-display text-3xl font-bold text-muted-foreground">{stats.totalAssists}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Shot Distribution */}
+      <div className="glass-card p-6">
+        <h3 className="font-display text-lg font-bold mb-4">Shot Distribution</h3>
+        <div className="space-y-4">
+          {/* Headshots */}
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium">Headshots</span>
+              <span className="text-sm text-accent font-bold">{headshotPercent}% ({stats.totalHeadshots})</span>
+            </div>
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-accent transition-all"
+                style={{ width: `${headshotPercent}%` }}
+              />
+            </div>
+          </div>
+          {/* Bodyshots */}
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium">Bodyshots</span>
+              <span className="text-sm text-primary font-bold">{bodyshotPercent}% ({stats.totalBodyshots})</span>
+            </div>
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all"
+                style={{ width: `${bodyshotPercent}%` }}
+              />
+            </div>
+          </div>
+          {/* Legshots */}
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium">Legshots</span>
+              <span className="text-sm text-muted-foreground font-bold">{legshotPercent}% ({stats.totalLegshots})</span>
+            </div>
+            <div className="h-3 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-muted-foreground transition-all"
+                style={{ width: `${legshotPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Damage Stats */}
+      <div className="glass-card p-6">
+        <h3 className="font-display text-lg font-bold mb-4">Damage Statistics</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">Total Damage Dealt</p>
+            <p className="font-display text-2xl font-bold text-green-500">{stats.totalDamageDealt.toLocaleString()}</p>
+          </div>
+          <div className="p-4 bg-muted/30 rounded-lg text-center">
+            <p className="text-sm text-muted-foreground">Total Damage Received</p>
+            <p className="font-display text-2xl font-bold text-destructive">{stats.totalDamageReceived.toLocaleString()}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
