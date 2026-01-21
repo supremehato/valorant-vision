@@ -78,7 +78,7 @@ export async function fetchPlayerStats(name: string, tag: string) {
   
   const [mmr, matches] = await Promise.all([
     fetchMMR(region, name, tag),
-    fetchMatchHistory(region, name, tag, 5),
+    fetchMatchHistory(region, name, tag, 20),
   ]);
   
   return {
